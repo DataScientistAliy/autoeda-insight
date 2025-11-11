@@ -5,3 +5,5 @@ matplotlib
 seaborn
 openpyxl
 plotly
+reportlab
+Pillow
