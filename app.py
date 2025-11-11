@@ -2,22 +2,18 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
-from io import StringIO, BytesIO
+from io import BytesIO
 import warnings
-
 warnings.filterwarnings("ignore")
 
 # PDF uchun
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import inch
-from PIL import Image as PILImage
 import base64
 
 # Sahifa sozlamalari
@@ -28,10 +24,9 @@ st.caption("CSV yoki XLSX faylni yuklang — avtomatik tahlil + PDF hisobot!")
 # Fayl yuklash
 uploaded_file = st.file_uploader("Faylni yuklang", type=["csv", "xlsx"])
 
-
 def generate_pdf_report(df, insights, figures):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
     styles = getSampleStyleSheet()
     story = []
 
@@ -46,14 +41,14 @@ def generate_pdf_report(df, insights, figures):
     data = [df.columns.tolist()] + df.head(10).values.tolist()
     table = Table(data)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+        ('ALIGN',(0,0),(-1,-1),'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('BACKGROUND',(0,1),(-1,-1),colors.beige),
+        ('GRID',(0,0),(-1,-1),0.5,colors.grey)
     ]))
     story.append(table)
     story.append(Spacer(1, 20))
@@ -61,38 +56,30 @@ def generate_pdf_report(df, insights, figures):
     # Insightlar
     story.append(Paragraph("Yashirin trendlar (Insight):", styles['Heading3']))
     for ins in insights:
-        story.append(Paragraph(f"• {ins.replace('**', '').replace('`', '')}", styles['Normal']))
+        story.append(Paragraph(f"• {ins.replace('**','').replace('`','')}", styles['Normal']))
     story.append(Spacer(1, 20))
 
     # Grafikalar
     story.append(Paragraph("Vizualizatsiyalar:", styles['Heading3']))
     for i, fig in enumerate(figures):
         img_buffer = BytesIO()
-        fig.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+        # Plotly → PNG
+        fig.write_image(img_buffer, format="png", width=800, height=500, scale=2)
         img_buffer.seek(0)
-        img = PILImage.open(img_buffer)
-        img_width = 6 * inch
-        img_height = (img.height / img.width) * img_width
-        if img_height > 7 * inch:
-            img_height = 7 * inch
-            img_width = (img.width / img.height) * img_height
-        story.append(Image(img_buffer, width=img_width, height=img_height))
+        story.append(Image(img_buffer, width=6*inch, height=3.75*inch))
         story.append(Spacer(1, 12))
 
     doc.build(story)
     buffer.seek(0)
     return buffer
 
-
 if uploaded_file is not None:
     try:
         if uploaded_file.name.endswith('.csv'):
-            raw = uploaded_file.read().decode('utf-8', errors='ignore')
-            uploaded_file.seek(0)
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file, engine='openpyxl')
-
+        
         st.success(f"Muvaffaqiyatli yuklandi! {df.shape[0]} qator, {df.shape[1]} ustun")
         st.session_state.df = df.copy()
 
@@ -114,11 +101,10 @@ if uploaded_file is not None:
             if df_clean[col].dtype in ['float64', 'int64']:
                 df_clean[col] = df_clean[col].fillna(df_clean[col].median())
             else:
-                df_clean[col] = df_clean[col].fillna(
-                    df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Noma'lum")
+                df_clean[col] = df_clean[col].fillna(df_clean[col].mode()[0] if not df_clean[col].mode().empty else "Noma'lum")
 
     for col in df_clean.columns:
-        if 'date' in col.lower() or 'time' in col.lower() or 'sana' in col.lower():
+        if any(k in col.lower() for k in ['date', 'time', 'sana']):
             df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
         elif df_clean[col].dtype == 'object':
             try:
@@ -149,8 +135,7 @@ if uploaded_file is not None:
     # 2. Korrelyatsiya
     if len(numeric_cols) > 1:
         corr = df[numeric_cols].corr()
-        fig2 = px.imshow(corr, text_auto=True, aspect="auto", color_continuous_scale='RdBu',
-                         title="Korrelyatsiya matritsasi")
+        fig2 = px.imshow(corr, text_auto=True, aspect="auto", color_continuous_scale='RdBu', title="Korrelyatsiya matritsasi")
         st.plotly_chart(fig2, use_container_width=True)
         figures.append(fig2)
 
